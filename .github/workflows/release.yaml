@@ -1,0 +1,114 @@
+---
+name: "release"
+
+# yamllint disable-line rule:truthy
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "release type"
+        default: "patch"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  attestations: write
+  id-token: write
+  contents: write
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture:
+          - arm
+          - arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3.6.0
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3.10.0
+
+      - name: Build dropbear
+        run: |
+          make bin/${{ matrix.architecture }}/dropbear
+          mv bin/${{ matrix.architecture }}/dropbear dropbear-${{ matrix.architecture }}
+
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v2.1.0
+        with:
+          subject-path: "dropbear-${{ matrix.architecture }}"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4.6.1
+        with:
+          name: dropbear-${{ matrix.architecture }}
+          path: dropbear-${{ matrix.architecture }}
+
+  release:
+    name: release
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4.1.9
+        with:
+          path: dist
+          pattern: dropbear-*
+          merge-multiple: true
+
+      - name: Write version
+        run: |
+          version="$(grep DROPBEAR_VERSION Makefile | head -n1 | awk '{print $3}')"
+          touch "dist/version-${version}"
+
+      - name: Get Latest Tag
+        id: latest-tag
+        run: |
+          GIT_LATEST_TAG="$(git describe --tags "$(git rev-list --tags --max-count=1 2>/dev/null || true)" 2>/dev/null || true)"
+          if [ -z "$GIT_LATEST_TAG" ]; then
+            GIT_LATEST_TAG="0.0.0"
+          fi
+          echo "GIT_LATEST_TAG=$GIT_LATEST_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Compute Next Tag
+        id: next-tag
+        uses: docker://ghcr.io/dokku/semver-generator:latest
+        with:
+          bump: ${{ github.event.inputs.release_type }}
+          input: ${{ steps.latest-tag.outputs.GIT_LATEST_TAG }}
+
+      - name: Create and Push Tag
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git tag "$GIT_NEXT_TAG"
+          git push origin "$GIT_NEXT_TAG"
+        env:
+          GIT_NEXT_TAG: ${{ steps.next-tag.outputs.version }}
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          make_latest: "true"
+          tag_name: ${{ steps.next-tag.outputs.version }}
