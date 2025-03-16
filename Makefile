@@ -1,8 +1,6 @@
-PAK_NAME := $(shell jq -r .label config.json)
-
 ARCHITECTURES := arm arm64
 
-DROPBEAR_VERSION ?= 2024.86
+DROPBEAR_VERSION ?= 2025.87
 
 clean:
 	rm -f bin/*/dropbear || true
