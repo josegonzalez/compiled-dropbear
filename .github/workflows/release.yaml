@@ -78,7 +78,7 @@ jobs:
       - name: Write version
         run: |
           version="$(grep DROPBEAR_VERSION Makefile | head -n1 | awk '{print $3}')"
-          touch "dist/version-${version}"
+          echo "$version" > "dist/version-${version}"
 
       - name: Get Latest Tag
         id: latest-tag
