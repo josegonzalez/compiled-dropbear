@@ -48,7 +48,7 @@ jobs:
           mv bin/${{ matrix.architecture }}/dropbear dropbear-${{ matrix.architecture }}
 
       - name: Attest Build Provenance
-        uses: actions/attest-build-provenance@v2.1.0
+        uses: actions/attest-build-provenance@v2.2.3
         with:
           subject-path: "dropbear-${{ matrix.architecture }}"
 
