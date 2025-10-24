@@ -53,7 +53,7 @@ jobs:
           subject-path: "dropbear-${{ matrix.architecture }}"
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4.6.1
+        uses: actions/upload-artifact@v5
         with:
           name: dropbear-${{ matrix.architecture }}
           path: dropbear-${{ matrix.architecture }}
