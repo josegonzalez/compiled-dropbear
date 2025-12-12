@@ -1,4 +1,5 @@
 FROM golang:1.20.5-buster
+RUN sed -i 's#deb.debian#archive.debian#' /etc/apt/sources.list
 
 ARG DROPBEAR_VERSION=DROPBEAR_2024.86
 ENV DROPBEAR_VERSION=$DROPBEAR_VERSION
